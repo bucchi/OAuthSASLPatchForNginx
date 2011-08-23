@@ -149,6 +149,7 @@ static ngx_str_t   ngx_mail_auth_http_method[] = {
 static ngx_str_t   ngx_mail_smtp_errcode = ngx_string("535 5.7.0");
 
 static ngx_str_t   ngx_mail_imap_oauth_errmsg = ngx_string("SASL authentication failed");
+static ngx_str_t   ngx_mail_smtp_oauth_errmsg = ngx_string("Error: authentication failed: authentication failure");
 
 
 void
@@ -703,6 +704,31 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                               "client login failed: \"%V\"", &ctx->errmsg);
 
                 if (s->protocol == NGX_MAIL_SMTP_PROTOCOL) {
+					
+					if(s->auth_method == NGX_MAIL_AUTH_OAUTH && ctx->errcode.len == 0){
+						ctx->errcode = ngx_mail_smtp_errcode;
+						ctx->err.len = sizeof("334 ") - 1 + ctx->errmsg.len + sizeof(CRLF) - 1
+						+ctx->errcode.len + ngx_mail_smtp_oauth_errmsg.len + sizeof(CRLF) - 1;						
+					
+						p = ngx_pnalloc(s->connection->pool, ctx->err.len);
+						if (p == NULL) {
+							ngx_close_connection(ctx->peer.connection);
+							ngx_destroy_pool(ctx->pool);
+							ngx_mail_session_internal_server_error(s);
+							return;
+						}
+						
+						ctx->err.data = p;
+						
+						*p++ = '3'; *p++ = '3'; *p++ = '4'; *p++ = ' ';
+						p = ngx_cpymem(p, ctx->errmsg.data, ctx->errmsg.len);
+						*p++ = CR; *p++ = LF;
+						p = ngx_cpymem(p, ctx->errcode.data, ctx->errcode.len);
+						*p++ = ' ';
+						p = ngx_cpymem(p, ngx_mail_smtp_oauth_errmsg.data, ngx_mail_smtp_oauth_errmsg.len);
+						*p++ = CR; *p = LF;
+					
+					}else{
 
                     if (ctx->errcode.len == 0) {
                         ctx->errcode = ngx_mail_smtp_errcode;
@@ -710,7 +736,7 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
 
                     ctx->err.len = ctx->errcode.len + ctx->errmsg.len
                                    + sizeof(" " CRLF) - 1;
-
+					
                     p = ngx_pnalloc(s->connection->pool, ctx->err.len);
                     if (p == NULL) {
                         ngx_close_connection(ctx->peer.connection);
@@ -725,6 +751,8 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                     *p++ = ' ';
                     p = ngx_cpymem(p, ctx->errmsg.data, ctx->errmsg.len);
                     *p++ = CR; *p = LF;
+					
+					}
                 }
 
                 s->out = ctx->err;
