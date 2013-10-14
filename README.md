@@ -25,4 +25,4 @@ Auth-Pass: dXNlcj1zb21ldXNlckBleGFtcGxlLmNvbQFhdXRoPUJlYXJlciB2RjlkZnQ0cW1UYzJOd
 Auth-Protocol: imap
 </code></pre>
 
-Detais about other headers are documented [here]http://nginx.org/en/docs/mail/ngx_mail_auth_http_module.html#protocol.
+Detais about other headers are documented [here](http://nginx.org/en/docs/mail/ngx_mail_auth_http_module.html#protocol).
