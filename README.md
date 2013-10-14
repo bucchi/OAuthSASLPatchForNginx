@@ -39,3 +39,12 @@ Auth-Protocol: imap
 </code></pre>
 
 Detais about other headers are documented [here](http://nginx.org/en/docs/mail/ngx_mail_auth_http_module.html#protocol).
+
+
+[SASL OAUTHBEARER]
+TBD
+
+
+[SASL OAUTH10A]
+TBD
+
