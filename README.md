@@ -14,9 +14,20 @@ In this mechanism, OAuth Token should be base64 encoding of the following format
 <br />
 <br />
 
-The base64 encoded value is sent to server with Authenticate command and XOAUTH2 parameter like this;
+The base64 encoded value is sent to server with Authenticate command and XOAUTH2 parameter of IMAP like this;
 <pre><code>AUTHENTICATE XOAUTH2 dXNlcj1zb21ldXNlckBleGFtcGxlLmNvbQFhdXRoPUJlYXJlciB2RjlkZnQ0cW1UYzJOdmIzUmxja0JoZEhSaGRtbHpkR0V1WTI5dENnPT0BAQo=
 </pre></code>
+
+Full protcol flow example of IMAP is the following; 
+<pre><code>
+[connection begins]
+C: C01 CAPABILITY
+S: * CAPABILITY IMAP4rev1 UNSELECT IDLE NAMESPACE QUOTA XLIST CHILDREN XYZZY SASL-IR AUTH=XOAUTH2
+S: C01 OK Completed
+C: A01 AUTHENTICATE XOAUTH2 dXNlcj1zb21ldXNlckBleGFtcGxlLmNvbQFhdXRoPUJlYXJlciB2RjlkZnQ0cW1UYzJOdmIzUmxja0JoZEhSaGRtbHpkR0V1WTI5dENnPT0BAQo=
+S: A01 OK Success
+[connection continues...]
+</code></pre>
 <br />
 <br />
 
