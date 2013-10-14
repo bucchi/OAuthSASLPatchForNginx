@@ -16,7 +16,8 @@ In this mechanism, OAuth Token should be base64 encoding of the following format
 The base64 encoded value is sent to server with Authenticate command and XOAUTH2 parameter like this;
 <pre><code>AUTHENTICATE XOAUTH2 dXNlcj1zb21ldXNlckBleGFtcGxlLmNvbQFhdXRoPUJlYXJlciB2RjlkZnQ0cW1UYzJOdmIzUmxja0JoZEhSaGRtbHpkR0V1WTI5dENnPT0BAQo=
 </pre></code>
-
+<br />
+<br />
 
 HTTP headers below are used to communicate with the authentication server.
 <pre><code>Auth-Method: oauth
