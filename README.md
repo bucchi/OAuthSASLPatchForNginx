@@ -10,9 +10,8 @@ In this mechanism, OAuth Token should be base64 encoding of the following format
 <pre><code>user=someuser@example.com^Aauth=Bearer vF9dft4qmTc2Nvb3RlckBhdHRhdmlzdGEuY29tCg==^A^A
 </pre></code>
 
-(*)^A represents a Control+A (\001) here.<br/>
-    
-
+(*)^A represents a Control+A (\001) here.<br />
+<br />
 
 The base64 encoded value is sent to server with Authenticate command and XOAUTH2 parameter like this;
 <pre><code>AUTHENTICATE XOAUTH2 dXNlcj1zb21ldXNlckBleGFtcGxlLmNvbQFhdXRoPUJlYXJlciB2RjlkZnQ0cW1UYzJOdmIzUmxja0JoZEhSaGRtbHpkR0V1WTI5dENnPT0BAQo=
