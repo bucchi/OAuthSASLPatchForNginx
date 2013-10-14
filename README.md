@@ -42,9 +42,11 @@ Detais about other headers are documented [here](http://nginx.org/en/docs/mail/n
 
 
 [SASL OAUTHBEARER]
+
 TBD
 
 
 [SASL OAUTH10A]
+
 TBD
 
