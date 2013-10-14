@@ -12,6 +12,7 @@ In this mechanism, OAuth Token should be base64 encoding of the following format
 
 (*) ^A represents a Control+A (\001) here.  
 
+
 The base64 encoded value is sent to server with Authenticate command and XOAUTH2 parameter like this;
 <pre><code>AUTHENTICATE XOAUTH2 dXNlcj1zb21ldXNlckBleGFtcGxlLmNvbQFhdXRoPUJlYXJlciB2RjlkZnQ0cW1UYzJOdmIzUmxja0JoZEhSaGRtbHpkR0V1WTI5dENnPT0BAQo=
 </pre></code>
