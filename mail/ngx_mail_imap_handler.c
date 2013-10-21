@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Igor Sysoev
+ * Copyright (C) Nginx, Inc.
  */
 
 
@@ -26,6 +27,7 @@ static u_char  imap_star[] = "* ";
 static u_char  imap_ok[] = "OK completed" CRLF;
 static u_char  imap_next[] = "+ OK" CRLF;
 static u_char  imap_plain_next[] = "+ " CRLF;
+static u_char  imap_oauth_next[] = "+ " CRLF;
 static u_char  imap_username[] = "+ VXNlcm5hbWU6" CRLF;
 static u_char  imap_password[] = "+ UGFzc3dvcmQ6" CRLF;
 static u_char  imap_bye[] = "* BYE" CRLF;
@@ -221,11 +223,11 @@ ngx_mail_imap_auth_state(ngx_event_t *rev)
         case ngx_imap_auth_cram_md5:
             rc = ngx_mail_auth_cram_md5(s, c);
             break;
-        
-		case ngx_imap_auth_oauth:
-			rc = ngx_mail_auth_oauth(s, c);
-			break;
-		}
+
+        case ngx_imap_auth_oauth:
+            rc = ngx_mail_auth_oauth(s, c, 0);
+            break;
+        }
 
     } else if (rc == NGX_IMAP_NEXT) {
         tag = 0;
@@ -402,13 +404,13 @@ ngx_mail_imap_authenticate(ngx_mail_session_t *s, ngx_connection_t *c)
         }
 
         return NGX_ERROR;
-	
-	case NGX_MAIL_AUTH_OAUTH:
-			
-		ngx_str_set(&s->out, imap_plain_next);
-		s->mail_state = ngx_imap_auth_oauth;
-			
-		return NGX_OK;		
+
+    case NGX_MAIL_AUTH_OAUTH:
+
+        ngx_str_set(&s->out, imap_oauth_next);
+        s->mail_state = ngx_imap_auth_oauth;
+
+        return NGX_OK;
     }
 
     return rc;
