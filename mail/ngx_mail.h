@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Igor Sysoev
+ * Copyright (C) Nginx, Inc.
  */
 
 
@@ -38,7 +39,13 @@ typedef struct {
     unsigned                ssl:1;
 #endif
 #if (NGX_HAVE_INET6 && defined IPV6_V6ONLY)
-    unsigned                ipv6only:2;
+    unsigned                ipv6only:1;
+#endif
+    unsigned                so_keepalive:2;
+#if (NGX_HAVE_KEEPALIVE_TUNABLE)
+    int                     tcp_keepidle;
+    int                     tcp_keepintvl;
+    int                     tcp_keepcnt;
 #endif
 } ngx_mail_listen_t;
 
@@ -93,7 +100,13 @@ typedef struct {
     unsigned                ssl:1;
 #endif
 #if (NGX_HAVE_INET6 && defined IPV6_V6ONLY)
-    unsigned                ipv6only:2;
+    unsigned                ipv6only:1;
+#endif
+    unsigned                so_keepalive:2;
+#if (NGX_HAVE_KEEPALIVE_TUNABLE)
+    int                     tcp_keepidle;
+    int                     tcp_keepintvl;
+    int                     tcp_keepcnt;
 #endif
 } ngx_mail_conf_addr_t;
 
@@ -149,7 +162,7 @@ typedef enum {
     ngx_imap_auth_login_password,
     ngx_imap_auth_plain,
     ngx_imap_auth_cram_md5,
-	ngx_imap_auth_oauth,
+    ngx_imap_auth_oauth,
     ngx_imap_login,
     ngx_imap_user,
     ngx_imap_passwd
@@ -162,7 +175,7 @@ typedef enum {
     ngx_smtp_auth_login_password,
     ngx_smtp_auth_plain,
     ngx_smtp_auth_cram_md5,
-	ngx_smtp_auth_oauth,
+    ngx_smtp_auth_oauth,
     ngx_smtp_helo,
     ngx_smtp_helo_xclient,
     ngx_smtp_helo_from,
@@ -222,6 +235,8 @@ typedef struct {
     ngx_str_t               smtp_helo;
     ngx_str_t               smtp_from;
     ngx_str_t               smtp_to;
+
+    ngx_str_t               cmd;
 
     ngx_uint_t              command;
     ngx_array_t             args;
@@ -295,6 +310,7 @@ typedef struct {
 #define NGX_MAIL_AUTH_NONE              5
 
 #define NGX_MAIL_AUTH_OAUTH             6
+
 
 #define NGX_MAIL_AUTH_PLAIN_ENABLED     0x0002
 #define NGX_MAIL_AUTH_LOGIN_ENABLED     0x0004
@@ -376,6 +392,8 @@ ngx_int_t ngx_mail_salt(ngx_mail_session_t *s, ngx_connection_t *c,
     ngx_mail_core_srv_conf_t *cscf);
 ngx_int_t ngx_mail_auth_plain(ngx_mail_session_t *s, ngx_connection_t *c,
     ngx_uint_t n);
+ngx_int_t ngx_mail_auth_oauth(ngx_mail_session_t *s, ngx_connection_t *c,
+    ngx_uint_t n);
 ngx_int_t ngx_mail_auth_login_username(ngx_mail_session_t *s,
     ngx_connection_t *c, ngx_uint_t n);
 ngx_int_t ngx_mail_auth_login_password(ngx_mail_session_t *s,
@@ -384,7 +402,7 @@ ngx_int_t ngx_mail_auth_cram_md5_salt(ngx_mail_session_t *s,
     ngx_connection_t *c, char *prefix, size_t len);
 ngx_int_t ngx_mail_auth_cram_md5(ngx_mail_session_t *s, ngx_connection_t *c);
 ngx_int_t ngx_mail_auth_parse(ngx_mail_session_t *s, ngx_connection_t *c);
-ngx_int_t ngx_mail_auth_oauth(ngx_mail_session_t *s, ngx_connection_t *c);
+
 
 void ngx_mail_send(ngx_event_t *wev);
 ngx_int_t ngx_mail_read_command(ngx_mail_session_t *s, ngx_connection_t *c);
