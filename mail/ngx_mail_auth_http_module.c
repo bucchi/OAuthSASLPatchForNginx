@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Igor Sysoev
+ * Copyright (C) Nginx, Inc.
  */
 
 
@@ -143,13 +144,10 @@ static ngx_str_t   ngx_mail_auth_http_method[] = {
     ngx_string("apop"),
     ngx_string("cram-md5"),
     ngx_string("none"),
-	ngx_string("oauth")
+    ngx_string("oauth")
 };
 
 static ngx_str_t   ngx_mail_smtp_errcode = ngx_string("535 5.7.0");
-
-static ngx_str_t   ngx_mail_imap_oauth_errmsg = ngx_string("SASL authentication failed");
-static ngx_str_t   ngx_mail_smtp_oauth_errmsg = ngx_string("Error: authentication failed: authentication failure");
 
 
 void
@@ -457,12 +455,15 @@ static void
 ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
     ngx_mail_auth_http_ctx_t *ctx)
 {
-    u_char              *p;
-    time_t               timer;
-    size_t               len, size;
-    ngx_int_t            rc, port, n;
-    ngx_addr_t          *peer;
-    struct sockaddr_in  *sin;
+    u_char               *p;
+    time_t                timer;
+    size_t                len, size;
+    ngx_int_t             rc, port, n;
+    ngx_addr_t           *peer;
+    struct sockaddr_in   *sin;
+#if (NGX_HAVE_INET6)
+    struct sockaddr_in6  *sin6;
+#endif
 
     ngx_log_debug0(NGX_LOG_DEBUG_MAIL, s->connection->log, 0,
                    "mail auth http process headers");
@@ -524,14 +525,13 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                     break;
 
                 case NGX_MAIL_IMAP_PROTOCOL:
-					if (s->auth_method == NGX_MAIL_AUTH_OAUTH) {
-						size = sizeof("+ ") - 1 + len + sizeof(CRLF) - 1
-						+ s->tag.len + sizeof("NO ") - 1 
-						+ ngx_mail_imap_oauth_errmsg.len + sizeof(CRLF) - 1;
-					}else{
-						size = s->tag.len + sizeof("NO ") - 1 + len
-							+ sizeof(CRLF) - 1;
-					}
+                    if (s->auth_method == NGX_MAIL_AUTH_OAUTH) {
+                        s->mail_state = ngx_imap_auth_oauth_error;
+                        size = sizeof("+ ") - 1 + len + sizeof(CRLF) - 1;
+                    } else {
+                    size = s->tag.len + sizeof("NO ") - 1 + len
+                           + sizeof(CRLF) - 1;
+                    }
                     break;
 
                 default: /* NGX_MAIL_SMTP_PROTOCOL */
@@ -556,25 +556,20 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                     break;
 
                 case NGX_MAIL_IMAP_PROTOCOL:
-					if (s->auth_method == NGX_MAIL_AUTH_OAUTH) {
-						*p++ = '+'; *p++ = ' ';
-						p = ngx_cpymem(p, ctx->header_start, len);
-						*p++ = CR; *p++ = LF;
-					}
+                    if (s->auth_method == NGX_MAIL_AUTH_OAUTH) {
+                        *p++ = '+'; *p++ = ' ';
+                    } else {
                     p = ngx_cpymem(p, s->tag.data, s->tag.len);
                     *p++ = 'N'; *p++ = 'O'; *p++ = ' ';
+                    }
                     break;
 
                 default: /* NGX_MAIL_SMTP_PROTOCOL */
                     break;
                 }
 
-				if (s->auth_method == NGX_MAIL_AUTH_OAUTH) {
-					p = ngx_cpymem(p, ngx_mail_imap_oauth_errmsg.data, ngx_mail_imap_oauth_errmsg.len);
-				}else{
-					p = ngx_cpymem(p, ctx->header_start, len);
-                }
-				*p++ = CR; *p++ = LF;
+                p = ngx_cpymem(p, ctx->header_start, len);
+                *p++ = CR; *p++ = LF;
 
                 ctx->err.len = p - ctx->err.data;
 
@@ -704,31 +699,6 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                               "client login failed: \"%V\"", &ctx->errmsg);
 
                 if (s->protocol == NGX_MAIL_SMTP_PROTOCOL) {
-					
-					if(s->auth_method == NGX_MAIL_AUTH_OAUTH && ctx->errcode.len == 0){
-						ctx->errcode = ngx_mail_smtp_errcode;
-						ctx->err.len = sizeof("334 ") - 1 + ctx->errmsg.len + sizeof(CRLF) - 1
-						+ctx->errcode.len + ngx_mail_smtp_oauth_errmsg.len + sizeof(CRLF) - 1;						
-					
-						p = ngx_pnalloc(s->connection->pool, ctx->err.len);
-						if (p == NULL) {
-							ngx_close_connection(ctx->peer.connection);
-							ngx_destroy_pool(ctx->pool);
-							ngx_mail_session_internal_server_error(s);
-							return;
-						}
-						
-						ctx->err.data = p;
-						
-						*p++ = '3'; *p++ = '3'; *p++ = '4'; *p++ = ' ';
-						p = ngx_cpymem(p, ctx->errmsg.data, ctx->errmsg.len);
-						*p++ = CR; *p++ = LF;
-						p = ngx_cpymem(p, ctx->errcode.data, ctx->errcode.len);
-						*p++ = ' ';
-						p = ngx_cpymem(p, ngx_mail_smtp_oauth_errmsg.data, ngx_mail_smtp_oauth_errmsg.len);
-						*p++ = CR; *p = LF;
-					
-					}else{
 
                     if (ctx->errcode.len == 0) {
                         ctx->errcode = ngx_mail_smtp_errcode;
@@ -736,10 +706,9 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
 
                     ctx->err.len = ctx->errcode.len + ctx->errmsg.len
                                    + sizeof(" " CRLF) - 1;
-					
+
                     p = ngx_pnalloc(s->connection->pool, ctx->err.len);
                     if (p == NULL) {
-                        ngx_close_connection(ctx->peer.connection);
                         ngx_destroy_pool(ctx->pool);
                         ngx_mail_session_internal_server_error(s);
                         return;
@@ -751,8 +720,6 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                     *p++ = ' ';
                     p = ngx_cpymem(p, ctx->errmsg.data, ctx->errmsg.len);
                     *p++ = CR; *p = LF;
-					
-					}
                 }
 
                 s->out = ctx->err;
@@ -817,19 +784,28 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                 return;
             }
 
-            /* AF_INET only */
+            rc = ngx_parse_addr(s->connection->pool, peer,
+                                ctx->addr.data, ctx->addr.len);
 
-            sin = ngx_pcalloc(s->connection->pool, sizeof(struct sockaddr_in));
-            if (sin == NULL) {
+            switch (rc) {
+            case NGX_OK:
+                break;
+
+            case NGX_DECLINED:
+                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
+                              "auth http server %V sent invalid server "
+                              "address:\"%V\"",
+                              ctx->peer.name, &ctx->addr);
+                /* fall through */
+
+            default:
                 ngx_destroy_pool(ctx->pool);
                 ngx_mail_session_internal_server_error(s);
                 return;
             }
 
-            sin->sin_family = AF_INET;
-
             port = ngx_atoi(ctx->port.data, ctx->port.len);
-            if (port == NGX_ERROR || port < 1 || port > 65536) {
+            if (port == NGX_ERROR || port < 1 || port > 65535) {
                 ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
                               "auth http server %V sent invalid server "
                               "port:\"%V\"",
@@ -839,21 +815,20 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                 return;
             }
 
-            sin->sin_port = htons((in_port_t) port);
+            switch (peer->sockaddr->sa_family) {
 
-            sin->sin_addr.s_addr = ngx_inet_addr(ctx->addr.data, ctx->addr.len);
-            if (sin->sin_addr.s_addr == INADDR_NONE) {
-                ngx_log_error(NGX_LOG_ERR, s->connection->log, 0,
-                              "auth http server %V sent invalid server "
-                              "address:\"%V\"",
-                              ctx->peer.name, &ctx->addr);
-                ngx_destroy_pool(ctx->pool);
-                ngx_mail_session_internal_server_error(s);
-                return;
+#if (NGX_HAVE_INET6)
+            case AF_INET6:
+                sin6 = (struct sockaddr_in6 *) peer->sockaddr;
+                sin6->sin6_port = htons((in_port_t) port);
+                break;
+#endif
+
+            default: /* AF_INET */
+                sin = (struct sockaddr_in *) peer->sockaddr;
+                sin->sin_port = htons((in_port_t) port);
+                break;
             }
-
-            peer->sockaddr = (struct sockaddr *) sin;
-            peer->socklen = sizeof(struct sockaddr_in);
 
             len = ctx->addr.len + 1 + ctx->port.len;
 
@@ -1377,7 +1352,7 @@ ngx_mail_auth_http_merge_conf(ngx_conf_t *cf, void *parent, void *child)
 
         if (conf->peer == NULL) {
             ngx_log_error(NGX_LOG_EMERG, cf->log, 0,
-                          "no \"http_auth\" is defined for server in %s:%ui",
+                          "no \"auth_http\" is defined for server in %s:%ui",
                           conf->file, conf->line);
 
             return NGX_CONF_ERROR;
@@ -1433,7 +1408,6 @@ ngx_mail_auth_http(ngx_conf_t *cf, ngx_command_t *cmd, void *conf)
     u.url = value[1];
     u.default_port = 80;
     u.uri_part = 1;
-    u.one_addr = 1;
 
     if (ngx_strncmp(u.url.data, "http://", 7) == 0) {
         u.url.len -= 7;
