@@ -1,6 +1,7 @@
 
 /*
  * Copyright (C) Igor Sysoev
+ * Copyright (C) Nginx, Inc.
  */
 
 
@@ -36,8 +37,6 @@ ngx_mail_init_connection(ngx_connection_t *c)
 
 
     /* find the server configuration for the address:port */
-
-    /* AF_INET only */
 
     port = c->listening->servers;
 
@@ -392,6 +391,65 @@ ngx_mail_auth_plain(ngx_mail_session_t *s, ngx_connection_t *c, ngx_uint_t n)
 
 
 ngx_int_t
+ngx_mail_auth_oauth(ngx_mail_session_t *s, ngx_connection_t *c, ngx_uint_t n)
+{
+    u_char     *p, *last;
+    ngx_str_t  *arg, plain;
+
+    arg = s->args.elts;
+
+#if (NGX_DEBUG_MAIL_PASSWD)
+    ngx_log_debug1(NGX_LOG_DEBUG_MAIL, c->log, 0,
+                   "mail auth oauth: \"%V\"", &arg[n]);
+#endif
+
+    plain.data = ngx_pnalloc(c->pool, ngx_base64_decoded_length(arg[n].len));
+    if (plain.data == NULL) {
+        return NGX_ERROR;
+    }
+
+    if (ngx_decode_base64(&plain, &arg[n]) != NGX_OK) {
+        ngx_log_error(NGX_LOG_INFO, c->log, 0,
+            "client sent invalid base64 encoding in AUTH OAUTH command");
+        return NGX_MAIL_PARSE_INVALID_COMMAND;
+    }
+
+    p = plain.data;
+    last = p + plain.len;
+
+    while (p < last && *p++) { /* void */ }
+
+    if (p == last) {
+        ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                      "client sent invalid login in AUTH OAUTH command");
+        return NGX_MAIL_PARSE_INVALID_COMMAND;
+    }
+
+    s->login.data = p;
+
+    while (p < last && *p) { p++; }
+
+    if (p == last) {
+        ngx_log_error(NGX_LOG_INFO, c->log, 0,
+                      "client sent invalid password in AUTH OAUTH command");
+        return NGX_MAIL_PARSE_INVALID_COMMAND;
+    }
+
+    s->login.len = p++ - s->login.data;
+
+    s->passwd.len = last - p;
+    s->passwd.data = p;
+
+#if (NGX_DEBUG_MAIL_PASSWD)
+    ngx_log_debug2(NGX_LOG_DEBUG_MAIL, c->log, 0,
+                   "mail auth oauth: \"%V\" \"%V\"", &s->login, &s->passwd);
+#endif
+
+    return NGX_DONE;
+}
+
+
+ngx_int_t
 ngx_mail_auth_login_username(ngx_mail_session_t *s, ngx_connection_t *c,
     ngx_uint_t n)
 {
@@ -531,54 +589,6 @@ ngx_mail_auth_cram_md5(ngx_mail_session_t *s, ngx_connection_t *c)
 }
 
 
-ngx_int_t
-ngx_mail_auth_oauth(ngx_mail_session_t *s, ngx_connection_t *c)
-{
-    ngx_str_t  *arg, plain;
-	
-    arg = s->args.elts;
-/*	
-#if (NGX_DEBUG_MAIL_PASSWD)
-    ngx_log_debug1(NGX_LOG_DEBUG_MAIL, c->log, 0,
-                   "mail auth plain: \"%V\"", &arg[n]);
-#endif
-*/	
-    plain.data = ngx_pnalloc(c->pool, arg[0].len);
-    //if (plain.data == NULL) {
-    //    return NGX_ERROR;
-    //}
-	ngx_cpystrn(plain.data,arg[0].data,arg[0].len);
-    //if (ngx_decode_base64(&plain, &arg[n]) != NGX_OK) {
-    //    ngx_log_error(NGX_LOG_INFO, c->log, 0,
-	//				  "client sent invalid base64 encoding in AUTH PLAIN command");
-    //    return NGX_MAIL_PARSE_INVALID_COMMAND;
-    //}
-	
-    //p = plain.data;
-    //last = p + plain.len;
-	
-    //while (p < last && *p++) { / void / }
-	
-    //if (p == last) {
-    //    ngx_log_error(NGX_LOG_INFO, c->log, 0,
-    //                  "client sent invalid login in AUTH PLAIN command");
-    //    return NGX_MAIL_PARSE_INVALID_COMMAND;
-    //}
-	
-    s->login.data = plain.data;
-	
-	s->auth_method = NGX_MAIL_AUTH_OAUTH;
-    /* 
-	
-#if (NGX_DEBUG_MAIL_PASSWD)
-    ngx_log_debug2(NGX_LOG_DEBUG_MAIL, c->log, 0,
-                   "mail auth plain: \"%V\" \"%V\"", &s->login, &s->passwd);
-#endif
-*/	
-    return NGX_DONE;
-}
-
-
 void
 ngx_mail_send(ngx_event_t *wev)
 {
@@ -669,7 +679,9 @@ ngx_mail_read_command(ngx_mail_session_t *s, ngx_connection_t *c)
             return NGX_ERROR;
         }
 
-        return NGX_AGAIN;
+        if (s->buffer->pos == s->buffer->last) {
+            return NGX_AGAIN;
+        }
     }
 
     cscf = ngx_mail_get_module_srv_conf(s, ngx_mail_core_module);
@@ -710,8 +722,12 @@ void
 ngx_mail_auth(ngx_mail_session_t *s, ngx_connection_t *c)
 {
     s->args.nelts = 0;
-    s->buffer->pos = s->buffer->start;
-    s->buffer->last = s->buffer->start;
+
+    if (s->buffer->pos == s->buffer->last) {
+        s->buffer->pos = s->buffer->start;
+        s->buffer->last = s->buffer->start;
+    }
+
     s->state = 0;
 
     if (c->read->timer_set) {
