@@ -46,7 +46,10 @@ static u_char  smtp_invalid_pipelining[] =
 static u_char  smtp_invalid_argument[] = "501 5.5.4 Invalid argument" CRLF;
 static u_char  smtp_auth_required[] = "530 5.7.1 Authentication required" CRLF;
 static u_char  smtp_bad_sequence[] = "503 5.5.1 Bad sequence of commands" CRLF;
-
+static u_char  smtp_oauth_error_finalizing[] =
+   "535-5.7.1 Username and Password not accepted. Learn more at" CRLF;
+static u_char  smtp_oauth_error_finalizing2[] =
+   "535 5.7.1 http://support.example.com/mail/oauth" CRLF;
 
 static ngx_str_t  smtp_unavailable = ngx_string("[UNAVAILABLE]");
 static ngx_str_t  smtp_tempunavail = ngx_string("[TEMPUNAVAIL]");
@@ -484,8 +487,13 @@ ngx_mail_smtp_auth_state(ngx_event_t *rev)
             rc = ngx_mail_auth_cram_md5(s, c);
             break;
 
-        case ngx_imap_auth_oauth:
+        case ngx_smtp_auth_oauth:
             rc = ngx_mail_auth_oauth(s, c, 0);
+            break;
+
+        case ngx_smtp_auth_oauth_error:
+            ngx_str_set(&s->out, smtp_oauth_error_finalizing);
+            ngx_str_set(&s->out, smtp_oauth_error_finalizing2);
             break;
         }
     }

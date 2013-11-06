@@ -529,12 +529,15 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                         s->mail_state = ngx_imap_auth_oauth_error;
                         size = sizeof("+ ") - 1 + len + sizeof(CRLF) - 1;
                     } else {
-                    size = s->tag.len + sizeof("NO ") - 1 + len
-                           + sizeof(CRLF) - 1;
+                        size = s->tag.len + sizeof("NO ") - 1 + len
+                               + sizeof(CRLF) - 1;
                     }
                     break;
 
                 default: /* NGX_MAIL_SMTP_PROTOCOL */
+                    if (s->auth_method == NGX_MAIL_AUTH_OAUTH) {
+                        s->mail_state = ngx_smtp_auth_oauth_error;
+                    }
                     ctx->err = ctx->errmsg;
                     continue;
                 }
@@ -559,8 +562,8 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                     if (s->auth_method == NGX_MAIL_AUTH_OAUTH) {
                         *p++ = '+'; *p++ = ' ';
                     } else {
-                    p = ngx_cpymem(p, s->tag.data, s->tag.len);
-                    *p++ = 'N'; *p++ = 'O'; *p++ = ' ';
+                        p = ngx_cpymem(p, s->tag.data, s->tag.len);
+                        *p++ = 'N'; *p++ = 'O'; *p++ = ' ';
                     }
                     break;
 
@@ -728,7 +731,9 @@ ngx_mail_auth_http_process_headers(ngx_mail_session_t *s,
                 ngx_destroy_pool(ctx->pool);
 
                 if (timer == 0) {
-                    s->quit = 1;
+                    if (s->auth_method != NGX_MAIL_AUTH_OAUTH) {
+                        s->quit = 1;
+                    }
                     ngx_mail_send(s->connection->write);
                     return;
                 }

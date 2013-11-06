@@ -32,6 +32,7 @@ static u_char  imap_username[] = "+ VXNlcm5hbWU6" CRLF;
 static u_char  imap_password[] = "+ UGFzc3dvcmQ6" CRLF;
 static u_char  imap_bye[] = "* BYE" CRLF;
 static u_char  imap_invalid_command[] = "BAD invalid command" CRLF;
+static u_char  imap_oauth_error_finalizing[] = "NO SASL authentication failed" CRLF;
 
 
 void
@@ -226,6 +227,11 @@ ngx_mail_imap_auth_state(ngx_event_t *rev)
 
         case ngx_imap_auth_oauth:
             rc = ngx_mail_auth_oauth(s, c, 0);
+            break;
+
+        case ngx_imap_auth_oauth_error:
+            s->quit = 1;
+            ngx_str_set(&s->text, imap_oauth_error_finalizing);
             break;
         }
 

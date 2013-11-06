@@ -163,6 +163,7 @@ typedef enum {
     ngx_imap_auth_plain,
     ngx_imap_auth_cram_md5,
     ngx_imap_auth_oauth,
+    ngx_imap_auth_oauth_error,
     ngx_imap_login,
     ngx_imap_user,
     ngx_imap_passwd
@@ -176,6 +177,7 @@ typedef enum {
     ngx_smtp_auth_plain,
     ngx_smtp_auth_cram_md5,
     ngx_smtp_auth_oauth,
+    ngx_smtp_auth_oauth_error,
     ngx_smtp_helo,
     ngx_smtp_helo_xclient,
     ngx_smtp_helo_from,
